@@ -1,13 +1,13 @@
-dusk_config = {
-    "filter": 102,
-    "ramp_speed": 103,
-    "mode": 29,
+DUSK = {
+    "mode":     29,
+    "filter":   102,
+    "ramptime": 103,
     "envelope": 107,
     "waveform": 20,
-    "rate_1": 23,
-    "rate_2": 24,
-    "rate_3": 25,
-    "subdiv": 30
+    "division": 30,
+    "rate_x_1": 23,
+    "rate_x_2": 24,
+    "rate_x_3": 25
 }
 
 ###
