@@ -4,6 +4,8 @@ import tkinter as tk
 from scroll import ScrolledFrame
 from config import * 
 
+PRESET_DATA_FILE = 'dusk.json'
+
 DEVICE  = 'USB MIDI Interface MIDI'
 CHANNEL = 1
 
@@ -27,9 +29,9 @@ def send_var(var_name):
     if check_var(var_name):
         cc = DUSK[var_name]
         value = variables[var_name].get()
+        print(f'{var_name:<8} --> {value}')
         if send_allowed:
-            print(f'{var_name:<8} --> {value}')
-        send_command(cc, value)
+            send_command(cc, value)
 
 def check_var(var_name):
     if var_name in ['mode', 'filter']:
@@ -42,9 +44,16 @@ def check_var(var_name):
         if var_name == 'envelope':
             return True
     if mode == 3:
-        if var_name in ['waveform', 'division', 'rate_x_1', 'rate_x_2', 'rate_x_3']:
+        if var_name in ['waveform', 'division']:
             return True
-    
+        bpm = var_bpm.get()
+        if bpm <= 127 and var_name == 'rate_x_1':
+            return True
+        elif bpm > 127 and bpm <= 127*2 and var_name == 'rate_x_2':
+            return True
+        elif bpm > 127*2 and bpm <= 127*3 and var_name == 'rate_x_3':
+            return True
+
 #########
 
 def on_key(event):
@@ -54,16 +63,41 @@ def on_key(event):
         pass
     else:
         value = 2**int(value)
-        print(f'SET DELTA  {value}')
+        print(f'CHANGE DELTA: {value}')
         delta.set(value)
         
 #########
 
+data = {}
+if os.path.exists(PRESET_DATA_FILE):
+    with open(PRESET_DATA_FILE, 'r') as fp:
+        data = json.load(fp)
+    print()
+    for k, v in data.items():
+        print(f'{k:>4} : {v}')
+    print()
+    print(f'LOADED {len(data)} PRESETS.')
+    print()
+    
 def on_dusk():
     for var_name in variables:
         if not 'rate' in var_name:
             send_var(var_name)
     on_bpm_send(None)
+
+def on_preset_save(idx):
+    idx = str(idx)
+    print(f'SAVE CURRENT SETTINGS TO PRESET: {idx}')
+    data[idx] = { var_name: variables[var_name].get() for var_name in variables if check_var(var_name) }
+    print(json.dumps(data[idx], indent=2))
+    with open(PRESET_DATA_FILE, 'w') as fp:
+        json.dump(data, fp)
+
+def on_preset_load(idx):
+    idx = str(idx)
+    if idx in data:
+        print(f'SEND TO DUSK: PRESET {idx}')
+        print(json.dumps(data[idx], indent=2))
 
 def on_mode_select(value):
     variables['mode'].set(value)
@@ -80,12 +114,10 @@ def on_bpm_send(x):
         variables['rate_x_1'].set(now)
         send_var('rate_x_1')
     elif now <= 127*2:
-        now = now//2
-        variables['rate_x_2'].set(now)
+        variables['rate_x_2'].set(now//2)
         send_var('rate_x_2')
     elif now <= 127*3:
-        now = now//3
-        variables['rate_x_3'].set(now)
+        variables['rate_x_3'].set(now//3)
         send_var('rate_x_3')
 
 ######### TOP LEVEL
@@ -171,10 +203,16 @@ psel = tk.Frame(pres)
 psel.grid(row=0, column=1, padx=6)
 
 def on_pre_up():
-    var_pre.set(min(99, var_pre.get() + 1))
-    
+    preset = min(99, var_pre.get() + 1)
+    var_pre.set(preset)
+    if preset in data:
+        print(json.dumps(data[preset], indent=2))
+
 def on_pre_down():
-    var_pre.set(max(1, var_pre.get() - 1))
+    preset = max(1, var_pre.get() - 1)
+    var_pre.set(preset)
+    if preset in data:
+        print(json.dumps(data[preset], indent=2))
 
 tk.Label(psel, text='Preset', font='Helvetica 12 bold').grid(row=0, columnspan=2)
 tk.Label(psel, textvariable=var_pre).grid(row=1, columnspan=2)
@@ -185,12 +223,14 @@ tk.Button(psel, width=CTL_BTN_WIDTH, text='\u2191', command=on_pre_up).grid(row=
 def on_save():
     preset = var_pre.get()
     send_command(55, preset)
+    on_preset_save(preset)
 
 def on_load():
     preset = var_pre.get()
     send_program(preset)
+    on_preset_load(preset)
 
-tk.Button(save, width=CTL_BTN_WIDTH, text='Load', command=on_load).grid(row=0, column=0, padx=6, pady=12) 
+tk.Button(save, width=CTL_BTN_WIDTH, text='Send', command=on_load).grid(row=0, column=0, padx=6, pady=12) 
 tk.Button(save, width=CTL_BTN_WIDTH, text='Save', command=on_save).grid(row=1, column=0, padx=6, pady=12)
 
 ### CUT
@@ -311,8 +351,6 @@ variables['division'].set(6)
 var_bpm.set(96)
 var_pre.set(5)
 
-on_mode_select(1)
-
 ##################
 
 if __name__ == '__main__':
@@ -321,7 +359,3 @@ if __name__ == '__main__':
         send_allowed = True
         
     root.mainloop()
-    
-
-
-
