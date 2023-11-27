@@ -10,6 +10,7 @@ A GUI for controlling DrScientist's DUSK through MIDI:
     - (this limits msgs-per-sec sent)
 
 * uses https://github.com/gbevin/SendMIDI to send messages
+    - this should be installed on your machine
     - use "sendmidi list" to get your device name
     - add it to dusk.py (set variable DEVICE)
     - thanks gbevin
